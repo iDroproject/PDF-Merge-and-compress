@@ -1,0 +1,21 @@
+{
+  "name": "merge-pdfs",
+  "version": "1.0.0",
+  "description": "A CLI tool to merge multiple PDF files into one",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "merge": "npx tsx src/index.ts"
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "tsx": "^4.6.2",
+    "typescript": "^5.3.2"
+  }
+}
+
