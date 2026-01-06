@@ -29,8 +29,16 @@ import {
   compressPdf,
   CompressionProgress,
 } from "./compress-utils";
+import { isImageFile, convertImageToPdf } from "./image-utils";
 
-type AppState = "idle" | "merging" | "success" | "compressing";
+type AppState = "idle" | "converting" | "merging" | "success" | "compressing";
+
+interface ConvertProgress {
+  current: number;
+  total: number;
+  currentFile: string;
+  errors: string[];
+}
 
 function App() {
   const [files, setFiles] = useState<PdfFile[]>([]);
@@ -38,6 +46,7 @@ function App() {
   const [appState, setAppState] = useState<AppState>("idle");
   const [isDragging, setIsDragging] = useState(false);
   const [mergeProgress, setMergeProgress] = useState({ current: 0, total: 0 });
+  const [convertProgress, setConvertProgress] = useState<ConvertProgress | null>(null);
   const [mergedPdfData, setMergedPdfData] = useState<Uint8Array | null>(null);
   const [compressProgress, setCompressProgress] =
     useState<CompressionProgress | null>(null);
@@ -55,12 +64,66 @@ function App() {
   );
 
   const handleFiles = useCallback(async (newFiles: FileList | File[]) => {
-    const pdfFiles = Array.from(newFiles).filter(
-      (f) => f.type === "application/pdf" || f.name.endsWith(".pdf")
+    const filesArray = Array.from(newFiles);
+
+    // Separate PDFs and images
+    const pdfFiles = filesArray.filter(
+      (f) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf")
     );
+    const imageFiles = filesArray.filter((f) => isImageFile(f));
+
+    // Convert images to PDFs with progress
+    const convertedPdfs: File[] = [];
+    const conversionErrors: string[] = [];
+
+    if (imageFiles.length > 0) {
+      setAppState("converting");
+      setConvertProgress({
+        current: 0,
+        total: imageFiles.length,
+        currentFile: imageFiles[0].name,
+        errors: [],
+      });
+
+      for (let i = 0; i < imageFiles.length; i++) {
+        const imageFile = imageFiles[i];
+        
+        setConvertProgress({
+          current: i + 1,
+          total: imageFiles.length,
+          currentFile: imageFile.name,
+          errors: conversionErrors,
+        });
+
+        try {
+          console.log(`Converting ${imageFile.name} to PDF... (${i + 1}/${imageFiles.length})`);
+          const pdfFile = await convertImageToPdf(imageFile, imageFile.name);
+          convertedPdfs.push(pdfFile);
+          console.log(`✓ Converted ${imageFile.name} → ${pdfFile.name}`);
+        } catch (error) {
+          const errorMsg = `${imageFile.name}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+          console.error(`✗ Failed to convert ${imageFile.name}:`, error);
+          conversionErrors.push(errorMsg);
+        }
+      }
+
+      setAppState("idle");
+      setConvertProgress(null);
+
+      // Show alert if some conversions failed
+      if (conversionErrors.length > 0) {
+        alert(`Some images failed to convert:\n\n${conversionErrors.join('\n')}`);
+      }
+    }
+
+    const allPdfFiles = [...pdfFiles, ...convertedPdfs];
+
+    if (allPdfFiles.length === 0) {
+      return;
+    }
 
     const processedFiles: PdfFile[] = await Promise.all(
-      pdfFiles.map(async (file) => {
+      allPdfFiles.map(async (file) => {
         const validation = await validateAndGetPageCount(file);
 
         return {
@@ -276,12 +339,12 @@ function App() {
               <line x1="12" y1="3" x2="12" y2="15" />
             </svg>
           </div>
-          <h3>Drop PDF files here</h3>
-          <p>or click to browse • No file size limit</p>
+          <h3>Drop PDF or image files here</h3>
+          <p>or click to browse • Supports PDF, HEIC, JPG, PNG</p>
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf,application/pdf"
+            accept=".pdf,application/pdf,.heic,.heif,.jpg,.jpeg,.png,.webp,image/*"
             multiple
             onChange={handleFileInput}
           />
@@ -382,6 +445,24 @@ function App() {
           any server.
         </p>
       </footer>
+
+      {appState === "converting" && convertProgress && (
+        <div className="progress-overlay">
+          <div className="progress-card">
+            <div className="spinner" />
+            <h3>Converting images to PDF...</h3>
+            <p>
+              {convertProgress.current} of {convertProgress.total} images
+            </p>
+            <p className="converting-filename">{convertProgress.currentFile}</p>
+            {convertProgress.errors.length > 0 && (
+              <p className="converting-errors">
+                {convertProgress.errors.length} failed
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {appState === "merging" && (
         <div className="progress-overlay">

@@ -442,6 +442,22 @@ body {
   color: var(--accent) !important;
 }
 
+.converting-filename {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.75rem;
+  color: var(--text-secondary) !important;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.converting-errors {
+  color: var(--danger) !important;
+  font-size: 0.75rem;
+  margin-top: 0.5rem;
+}
+
 /* Success State */
 .success-card {
   background: var(--bg-secondary);

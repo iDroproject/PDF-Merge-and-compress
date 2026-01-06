@@ -10,6 +10,7 @@ export default defineConfig({
     esbuildOptions: {
       target: "esnext",
     },
+    exclude: ["heic2any"],
   },
 });
 
